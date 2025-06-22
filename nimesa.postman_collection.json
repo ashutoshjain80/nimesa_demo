@@ -14,7 +14,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "[\r\n    {\r\n        \"snapshotId\": \"snap-01c65f6cb15275593\",\r\n        \"instanceId\": \"i-0b979566f1e048068\"\r\n    }\r\n]",
+					"raw": "[\r\n    {\r\n        \"snapshotId\": [\r\n            \"snap-0dcb78555bc7bb7fd\"\r\n        ],\r\n        \"instanceId\": \"i-0b979566f1e048068\",\r\n        \"imageId\": \"ami-076a2844535f36a65\"\r\n    }\r\n]",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -47,6 +47,43 @@
 					"port": "8080",
 					"path": [
 						"backup"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "localhost:8080/image/status?imageId=ami-0a6fa28b47d5b220e",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"snapshotId\": [\r\n            \"snap-0dcb78555bc7bb7fd\"\r\n        ],\r\n        \"instanceId\": \"i-0b979566f1e048068\",\r\n        \"imageId\": \"ami-076a2844535f36a65\"\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/image/status?imageId=ami-0a6fa28b47d5b220e",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"image",
+						"status"
+					],
+					"query": [
+						{
+							"key": "imageId",
+							"value": "ami-0a6fa28b47d5b220e"
+						}
 					]
 				}
 			},
