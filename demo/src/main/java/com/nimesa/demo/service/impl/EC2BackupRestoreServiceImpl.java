@@ -93,8 +93,6 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
        String newInstanceId="";
         try{
         RunInstancesRequest runInstanceRequest=new RunInstancesRequest().withImageId(imageId).withInstanceType("t2.micro").withMinCount(1).withMaxCount(1);
-        //.withSubnetId("subnet-0a8f1ae2a2f94c1bd");
-
         RunInstancesResult runInstancesResult=ec2Client.runInstances(runInstanceRequest);
         newInstanceId=runInstancesResult.getReservation().getInstances().get(0).getInstanceId();
         System.out.println("New EC2 instanceId: "+ newInstanceId);
