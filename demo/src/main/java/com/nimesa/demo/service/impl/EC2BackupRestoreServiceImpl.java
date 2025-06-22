@@ -32,17 +32,15 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 {
 
     private final AmazonEC2 ec2Client;
-   public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client){
-       this.ec2Client=ec2Client;
-       
-   }
+    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client){
+        this.ec2Client=ec2Client;
+        
+    }
    
     @Override
     public List<BackupResponse> backupAllInstances() {
         List<BackupResponse> backupDetailsList= new ArrayList<>();
         try{
-            
-            
             DescribeInstancesRequest request= new DescribeInstancesRequest().withFilters();
             Filter stateFilter = new Filter().withName("instance-state-name").withValues("running");
             request.withFilters(stateFilter);
@@ -78,38 +76,38 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 
     @Override
     public String restore(List<String> snapshotIds, String imageId ) {
-       String newInstanceId="";
+        String newInstanceId="";
         try{
-        RunInstancesRequest runInstanceRequest=new RunInstancesRequest().withImageId(imageId).withInstanceType("t2.micro").withMinCount(1).withMaxCount(1);
-        RunInstancesResult runInstancesResult=ec2Client.runInstances(runInstanceRequest);
-        newInstanceId=runInstancesResult.getReservation().getInstances().get(0).getInstanceId();
-        System.out.println("New EC2 instanceId: "+ newInstanceId);
-       }
-       catch(AmazonEC2Exception ec2Exception){
-        
-        System.err.println("Error while restoring EC2"+ ec2Exception.getErrorMessage());
-        throw new AmazonEC2Exception(ec2Exception.getErrorMessage());
-       }
-       return newInstanceId;
+            RunInstancesRequest runInstanceRequest=new RunInstancesRequest().withImageId(imageId).withInstanceType("t2.micro").withMinCount(1).withMaxCount(1);
+            RunInstancesResult runInstancesResult=ec2Client.runInstances(runInstanceRequest);
+            newInstanceId=runInstancesResult.getReservation().getInstances().get(0).getInstanceId();
+            System.out.println("New EC2 instanceId: "+ newInstanceId);
+        }
+        catch(AmazonEC2Exception ec2Exception){
+            
+            System.err.println("Error while restoring EC2"+ ec2Exception.getErrorMessage());
+            throw new AmazonEC2Exception(ec2Exception.getErrorMessage());
+        }
+        return newInstanceId;
     }
 
     @Override
     public List<ImageStateResponse> checkImageBackupStatus(List<String> imageId) {
         List<ImageStateResponse> imageStateList=new ArrayList<>();
-       try{
-        DescribeImagesRequest describeImagesRequest=new DescribeImagesRequest().withImageIds(imageId);
-        DescribeImagesResult result=ec2Client.describeImages(describeImagesRequest);
-       
-        if(!result.getImages().isEmpty()){
-            for(int i=0;i<result.getImages().size();i++){
-                ImageStateResponse resp=new ImageStateResponse();
-                resp.setImageId(result.getImages().get(i).getImageId());
-                resp.setState(result.getImages().get(i).getState());
-                imageStateList.add(resp);
+        try{
+            DescribeImagesRequest describeImagesRequest=new DescribeImagesRequest().withImageIds(imageId);
+            DescribeImagesResult result=ec2Client.describeImages(describeImagesRequest);
+        
+            if(!result.getImages().isEmpty()){
+                for(int i=0;i<result.getImages().size();i++){
+                    ImageStateResponse resp=new ImageStateResponse();
+                    resp.setImageId(result.getImages().get(i).getImageId());
+                    resp.setState(result.getImages().get(i).getState());
+                    imageStateList.add(resp);
+                }
+                
             }
-            
         }
-    }
         catch(AmazonEC2Exception ex){
             throw new AmazonEC2Exception(ex.getErrorMessage());
         }
@@ -121,16 +119,16 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     public List<String> discover() {
         List<String> instanceIds= new ArrayList<>();
         DescribeInstancesRequest request= new DescribeInstancesRequest().withFilters();
-            Filter stateFilter = new Filter().withName("instance-state-name").withValues("running");
-            request.withFilters(stateFilter);
-            DescribeInstancesResult response = ec2Client.describeInstances(request);
-            for(Reservation reservation : response.getReservations()){
-                for(Instance instance : reservation.getInstances()){
-                    String instanceId=instance.getInstanceId();
-                    instanceIds.add(instanceId);
-                }
+        Filter stateFilter = new Filter().withName("instance-state-name").withValues("running");
+        request.withFilters(stateFilter);
+        DescribeInstancesResult response = ec2Client.describeInstances(request);
+        for(Reservation reservation : response.getReservations()){
+            for(Instance instance : reservation.getInstances()){
+                String instanceId=instance.getInstanceId();
+                instanceIds.add(instanceId);
             }
-            return instanceIds;
         }
+        return instanceIds;
+    }
     
 }
