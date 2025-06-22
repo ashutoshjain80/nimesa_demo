@@ -17,11 +17,11 @@ import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 
 import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
-
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.nimesa.demo.response.BackupResponse;
+import com.nimesa.demo.response.DiscoverResponse;
 import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
@@ -36,13 +36,13 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         this.ec2Client=ec2Client;
         
     }
-   
+    
     @Override
     public List<BackupResponse> backupAllInstances() {
         List<BackupResponse> backupDetailsList= new ArrayList<>();
         try{
             DescribeInstancesRequest request= new DescribeInstancesRequest().withFilters();
-            Filter stateFilter = new Filter().withName("instance-state-name").withValues("running");
+            Filter stateFilter = new Filter().withName("instance-state-name").withValues("running","stopped");
             request.withFilters(stateFilter);
             DescribeInstancesResult response = ec2Client.describeInstances(request);
             
@@ -55,7 +55,6 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
                     System.out.println("Created AMI: "+createImageResult.getImageId());
                     List<String> snapshotIds=new ArrayList<>();
                     backupDetailsList.add(new BackupResponse(instanceId,imageId,snapshotIds));
-
                 }
             }
         }
@@ -116,19 +115,21 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     }
 
     @Override
-    public List<String> discover() {
-        List<String> instanceIds= new ArrayList<>();
+    public List<ImageStateResponse> discover() {
+        List<ImageStateResponse> instanceStateList = new ArrayList<>();
         DescribeInstancesRequest request= new DescribeInstancesRequest().withFilters();
-        Filter stateFilter = new Filter().withName("instance-state-name").withValues("running");
+        Filter stateFilter = new Filter().withName("instance-state-name").withValues("running","stopped");
         request.withFilters(stateFilter);
         DescribeInstancesResult response = ec2Client.describeInstances(request);
         for(Reservation reservation : response.getReservations()){
             for(Instance instance : reservation.getInstances()){
-                String instanceId=instance.getInstanceId();
-                instanceIds.add(instanceId);
+                ImageStateResponse resp=new ImageStateResponse();
+                resp.setImageId(instance.getInstanceId());
+                resp.setState(instance.getState().getName());
+                instanceStateList.add(resp);
             }
         }
-        return instanceIds;
+        return instanceStateList;
     }
     
 }
