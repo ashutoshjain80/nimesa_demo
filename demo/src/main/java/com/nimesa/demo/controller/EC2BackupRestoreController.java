@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.nimesa.demo.response.BackupResponse;
+import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
 import org.springframework.http.HttpStatus;
@@ -29,8 +30,8 @@ public class EC2BackupRestoreController{
     }
 
     @GetMapping("/image/status")
-    public ResponseEntity<String> checkImageStatus(@RequestParam String imageId){
-       String state= ec2BackupRestoreService.checkImageBackupStatus(imageId);
+    public ResponseEntity<List<ImageStateResponse>> checkImageStatus(@RequestParam List<String> imageId){
+       List<ImageStateResponse> state= ec2BackupRestoreService.checkImageBackupStatus(imageId);
        return new ResponseEntity<>(state,HttpStatus.OK);
     }
 
