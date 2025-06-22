@@ -88,6 +88,24 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "localhost:8080/discover",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:8080/discover",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"discover"
+					]
+				}
+			},
+			"response": []
 		}
 	]
 }
