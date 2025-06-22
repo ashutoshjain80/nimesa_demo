@@ -6,6 +6,7 @@ import com.nimesa.demo.response.BackupResponse;
 
 public interface EC2BackupRestoreService{
     List<BackupResponse> backupAllInstances();
-    String restore(String snapshotId,String instanceId);
+    String restore(List<String> snapshotId,String imageId);
+    String checkImageBackupStatus(String imageId);
 
 }

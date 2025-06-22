@@ -7,10 +7,11 @@ import com.nimesa.demo.response.BackupResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,11 +28,18 @@ public class EC2BackupRestoreController{
        return new ResponseEntity<>(ec2BackupRestoreService.backupAllInstances(),HttpStatus.OK);  
     }
 
+    @GetMapping("/image/status")
+    public ResponseEntity<String> checkImageStatus(@RequestParam String imageId){
+       String state= ec2BackupRestoreService.checkImageBackupStatus(imageId);
+       return new ResponseEntity<>(state,HttpStatus.OK);
+    }
+
     @PostMapping ("/restore")
     public ResponseEntity<List<String>> restore(@RequestBody List<BackupResponse> restoreRequest){
+        
         List<String> instanceIds=new ArrayList<>();
         for(BackupResponse req:restoreRequest){
-            String instanceId=ec2BackupRestoreService.restore(req.getSnapshotId(), req.getInstanceId());
+            String instanceId=ec2BackupRestoreService.restore(req.getSnapshotId(),req.getImageId());
             instanceIds.add(instanceId);
 
         }
