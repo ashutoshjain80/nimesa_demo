@@ -21,7 +21,7 @@ import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.nimesa.demo.response.BackupResponse;
-import com.nimesa.demo.response.DiscoverResponse;
+
 import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
