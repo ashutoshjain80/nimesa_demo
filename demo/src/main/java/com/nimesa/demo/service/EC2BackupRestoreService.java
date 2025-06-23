@@ -16,5 +16,6 @@ public interface EC2BackupRestoreService{
     JobStatusResponse discover_new();
     JobStatusResponse listAllS3Buckets_new(ListBucketsPaginatedRequest paginatedRequest);
     List<String> listAllS3Buckets(ListBucketsPaginatedRequest paginatedRequest);
+    List<JobStatusResponse> getJobStatus(List<String> jobIds);
 
 }
