@@ -3,10 +3,13 @@ package com.nimesa.demo.service.impl;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-
+import com.amazonaws.services.deadline.model.JobEntity;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.AmazonEC2Exception;
 import com.amazonaws.services.ec2.model.CreateImageRequest;
@@ -314,6 +317,15 @@ catch(Exception e){
     return statusResp;
 }
    
+    }
+
+    public List<JobStatusResponse> getJobStatus(List<String> jobIds){
+          return jobIds.stream()
+        .map(id -> jobRepository.findById(UUID.fromString(id))
+            .map(job -> new JobStatusResponse(job.getId(), job.getStatus()))
+            .orElse(null))
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
     }
     
 }
