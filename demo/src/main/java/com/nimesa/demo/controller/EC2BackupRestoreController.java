@@ -2,14 +2,18 @@ package com.nimesa.demo.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
+import com.amazonaws.Response;
 import com.amazonaws.services.medialive.model.SrtSettings;
+import com.amazonaws.services.s3.event.S3EventNotification.S3ObjectEntity;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
 import com.nimesa.demo.response.BackupResponse;
 import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.response.JobStatusResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,14 +44,16 @@ public class EC2BackupRestoreController{
 
     @GetMapping("/discover")
     public ResponseEntity<List<JobStatusResponse>> discoverServices(@RequestParam List<String> services){
-         List<JobStatusResponse> result = new ArrayList<>();
+    List<JobStatusResponse> result = new ArrayList<>();
     boolean hasS3 = services.stream().anyMatch(s -> s.equalsIgnoreCase("S3"));
     boolean hasEC2 = services.stream().anyMatch(s -> s.equalsIgnoreCase("EC2"));
     
-    if (hasEC2) result.add(ec2BackupRestoreService.discover_new());
+    if (hasEC2) result.add(ec2BackupRestoreService.discover_new("EC2"));
     if (hasS3) result.add(ec2BackupRestoreService.listAllS3Buckets_new(paginatdRequest()));
         return  new ResponseEntity<>(result,HttpStatus.OK);
     }
+
+
 
     @GetMapping("/job/status")
     public ResponseEntity<List<JobStatusResponse>> jobStaus(@RequestParam List<String> jobIds){
@@ -55,13 +61,6 @@ public class EC2BackupRestoreController{
       return new ResponseEntity<>(jobStatusResp,HttpStatus.OK);
     }
 
-    @GetMapping("/instances/discover")
-    public ResponseEntity<List<ImageStateResponse>> discover(){
-        List<ImageStateResponse> discoveredInstances= ec2BackupRestoreService.discover();
-        List<String> S3BucketNames= ec2BackupRestoreService.listAllS3Buckets(paginatdRequest());
-        S3BucketNames.forEach(System.out::println);
-       return new ResponseEntity<>(discoveredInstances,HttpStatus.OK);
-    }
 
     @PostMapping ("/restore")
     public ResponseEntity<List<String>> restore(@RequestBody List<BackupResponse> restoreRequest){
@@ -75,12 +74,32 @@ public class EC2BackupRestoreController{
         return new ResponseEntity<>(instanceIds,HttpStatus.OK); 
     }
 
+    @GetMapping("/discovery/result")
+       public ResponseEntity<Page<?>> discoverServicesResult(@RequestParam String service,String jobId,@RequestParam(defaultValue = "0") int page,
+        @RequestParam (defaultValue = "10") int size) throws Exception{
+        if(service.contains("EC2")){
+           return new ResponseEntity<>(ec2BackupRestoreService.getEC2InstanceDetails(UUID.fromString(jobId),page,size),HttpStatus.OK);
+        }
+        if(service.contains("S3")){
+             return new ResponseEntity<>(ec2BackupRestoreService.getS3BucketDetails(UUID.fromString(jobId),page,size),HttpStatus.OK);
+        }
+      throw new Exception("Service Not Supported");
+      
+    }
+    
+    @GetMapping("/bucket/details")
+    public ResponseEntity<JobStatusResponse> storeS3BucketDtails(@RequestParam String bucketName){
+        return new ResponseEntity<>(ec2BackupRestoreService.createJobAndStoreS3Objects(bucketName),HttpStatus.OK);
+    }
+
     private ListBucketsPaginatedRequest paginatdRequest(){
         ListBucketsPaginatedRequest request=new ListBucketsPaginatedRequest();
         request.setContinuationToken(null);
         return request;
  
     }
+
+    
 
 
 
