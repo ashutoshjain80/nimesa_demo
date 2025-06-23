@@ -98,7 +98,7 @@ public class EC2BackupRestoreController{
     }
 
     @GetMapping("/bucket/objects")
-    public ResponseEntity<List<com.nimesa.demo.entity.S3ObjectEntity>> getS3BucketObjetCount(@RequestParam (required=false) String bucketName,@RequestParam(required=false) String searchPattern){
+    public ResponseEntity<List<com.nimesa.demo.entity.S3ObjectEntity>> getS3BucketObjetCount(@RequestParam  String bucketName,@RequestParam(required=false) String searchPattern){
         return new ResponseEntity<>(ec2BackupRestoreService.getS3Objects(bucketName,searchPattern),HttpStatus.OK);
     }
 
