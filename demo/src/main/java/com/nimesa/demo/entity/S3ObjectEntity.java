@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
@@ -17,6 +18,7 @@ import lombok.Setter;
 @Setter
 @Data
 @Table(name = "S3_objets")
+@NoArgsConstructor
 public class S3ObjectEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -25,8 +27,7 @@ public class S3ObjectEntity {
     private String bucketName;
     private String objectKey;
     
-    public S3ObjectEntity(UUID jobId,String bucketName,String objectKey){
-        this.jobId=jobId;
+    public S3ObjectEntity(String bucketName,String objectKey){
         this.bucketName=bucketName;
         this.objectKey=objectKey;
     }

@@ -24,6 +24,6 @@ public class EC2InstanceDetails {
     private UUID jobId;
     private String instanceId; 
     private String instanceType;
-    private String state;
+   // private String state;
     
 }
