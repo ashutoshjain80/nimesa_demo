@@ -3,6 +3,7 @@ package com.nimesa.demo.controller;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
 import com.nimesa.demo.response.BackupResponse;
 import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
@@ -38,6 +39,8 @@ public class EC2BackupRestoreController{
     @GetMapping("/instances/discover")
     public ResponseEntity<List<ImageStateResponse>> discover(){
         List<ImageStateResponse> discoveredInstances= ec2BackupRestoreService.discover();
+        List<String> S3BucketNames= ec2BackupRestoreService.listAllS3Buckets(paginatdRequest());
+        S3BucketNames.forEach(System.out::println);
        return new ResponseEntity<>(discoveredInstances,HttpStatus.OK);
     }
 
@@ -51,6 +54,13 @@ public class EC2BackupRestoreController{
 
         }
         return new ResponseEntity<>(instanceIds,HttpStatus.OK); 
+    }
+
+    private ListBucketsPaginatedRequest paginatdRequest(){
+        ListBucketsPaginatedRequest request=new ListBucketsPaginatedRequest();
+        request.setContinuationToken(null);
+        return request;
+ 
     }
 
 }
