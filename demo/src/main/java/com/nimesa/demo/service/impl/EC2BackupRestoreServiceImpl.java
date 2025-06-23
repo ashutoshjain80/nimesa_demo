@@ -220,7 +220,7 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
        try{
         String continuationToken = null;
         ListObjectsV2Result result;
-
+         Set<String> currentS3Keys = new HashSet<>();
         List<S3ObjectEntity> allObjects = new ArrayList<>();
         Set<String> existingOjects = new HashSet<>(s3ObjectRepository.findAllObjects(bucketName));
         do {
@@ -232,6 +232,7 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
             result = s3Client.listObjectsV2(request);
 
             for (S3ObjectSummary summary : result.getObjectSummaries()) {
+                currentS3Keys.add(summary.getKey());
                 if(!existingOjects.contains(summary.getKey())){
                     allObjects.add(new S3ObjectEntity(bucketName, summary.getKey()));
                 }
@@ -241,6 +242,12 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         } while (result.isTruncated());
 
         s3ObjectRepository.saveAll(allObjects);
+        Set<String> keysToDelete = new HashSet<>(existingOjects);
+        keysToDelete.removeAll(currentS3Keys);
+
+        if (!keysToDelete.isEmpty()) {
+            s3ObjectRepository.deleteByObjectKeyIn(keysToDelete);
+        }
 
         jobRepository.findById(jobId).ifPresent(job -> {
                 job.setStatus("COMPLETED");
@@ -306,6 +313,7 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
 
 }
 private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPaginatedRequest paginatedRequest){
+   
     List<S3BucketDetails> s3DetailsList=new ArrayList<>();       
         String continuationToken=paginatedRequest.getContinuationToken();
          Set<String> existingS3Buckets = new HashSet<>(s3BucketRepository.findAllBuckets());
@@ -314,10 +322,11 @@ private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPagin
             paginatedRequest.setContinuationToken(continuationToken);
             ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
             for(Bucket bucket: result.getBuckets()){
+                
                 if(!existingS3Buckets.contains(bucket.getName())){
                  S3BucketDetails bucketDetails=new S3BucketDetails();
-                bucketDetails.setBucketName(bucket.getName());
-                s3DetailsList.add(bucketDetails);
+                    bucketDetails.setBucketName(bucket.getName());
+                    s3DetailsList.add(bucketDetails);
                 }
                // bucketNames.add(bucket.getName());
             }
