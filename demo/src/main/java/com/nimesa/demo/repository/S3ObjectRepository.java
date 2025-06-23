@@ -22,6 +22,13 @@ public interface S3ObjectRepository extends JpaRepository<S3ObjectEntity, UUID> 
         List<String> findAllObjects(@Param("bucketName") String bucketName);
         @Transactional
         void deleteByObjectKeyIn( Collection<String> keys);
+        @Query("""
+    SELECT o FROM S3ObjectEntity o
+    WHERE LOWER(o.bucketName) = LOWER(:bucketName)
+      AND LOWER(o.objectKey) LIKE LOWER(:pattern)
+""")
+List<S3ObjectEntity> findByBucketAndObjectKeyPatternIgnoreCase(@Param("bucketName") String bucketName,
+                                                               @Param("pattern") String pattern);
 
 }
 
