@@ -75,13 +75,13 @@ public class EC2BackupRestoreController{
     }
 
     @GetMapping("/discovery/result")
-       public ResponseEntity<Page<?>> discoverServicesResult(@RequestParam String service,String jobId,@RequestParam(defaultValue = "0") int page,
+       public ResponseEntity<Page<?>> discoverServicesResult(@RequestParam String service,@RequestParam(defaultValue = "0") int page,
         @RequestParam (defaultValue = "10") int size) throws Exception{
         if(service.contains("EC2")){
-           return new ResponseEntity<>(ec2BackupRestoreService.getEC2InstanceDetails(UUID.fromString(jobId),page,size),HttpStatus.OK);
+           return new ResponseEntity<>(ec2BackupRestoreService.getEC2InstanceDetails(page,size),HttpStatus.OK);
         }
         if(service.contains("S3")){
-             return new ResponseEntity<>(ec2BackupRestoreService.getS3BucketDetails(UUID.fromString(jobId),page,size),HttpStatus.OK);
+             return new ResponseEntity<>(ec2BackupRestoreService.getS3BucketDetails(page,size),HttpStatus.OK);
         }
       throw new Exception("Service Not Supported");
       
@@ -90,6 +90,16 @@ public class EC2BackupRestoreController{
     @GetMapping("/bucket/details")
     public ResponseEntity<JobStatusResponse> storeS3BucketDtails(@RequestParam String bucketName){
         return new ResponseEntity<>(ec2BackupRestoreService.createJobAndStoreS3Objects(bucketName),HttpStatus.OK);
+    }
+
+    @GetMapping("/bucket/objectCount")
+    public ResponseEntity<Long> getS3BucketObjetCount(@RequestParam String bucketName){
+        return new ResponseEntity<>(ec2BackupRestoreService.getS3ObjectCount(bucketName),HttpStatus.OK);
+    }
+
+    @GetMapping("/bucket/objects")
+    public ResponseEntity<List<com.nimesa.demo.entity.S3ObjectEntity>> getS3BucketObjetCount(@RequestParam (required=false) String bucketName,@RequestParam(required=false) String searchPattern){
+        return new ResponseEntity<>(ec2BackupRestoreService.getS3Objects(bucketName,searchPattern),HttpStatus.OK);
     }
 
     private ListBucketsPaginatedRequest paginatdRequest(){
