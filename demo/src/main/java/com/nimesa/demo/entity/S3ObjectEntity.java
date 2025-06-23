@@ -23,7 +23,6 @@ public class S3ObjectEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
-    private UUID jobId;
     private String bucketName;
     private String objectKey;
     
