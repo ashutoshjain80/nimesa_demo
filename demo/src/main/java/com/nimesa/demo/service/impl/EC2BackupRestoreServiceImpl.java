@@ -31,6 +31,7 @@ import com.nimesa.demo.repository.JobRepository;
 import com.nimesa.demo.response.BackupResponse;
 
 import com.nimesa.demo.response.ImageStateResponse;
+import com.nimesa.demo.response.JobStatusResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
 import org.springframework.stereotype.Service;
@@ -132,11 +133,14 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     public List<ImageStateResponse> discover() {
         List<ImageStateResponse> instanceStateList = new ArrayList<>();
         String nextToken=null;
+        JobStatusResponse jobStatusResponse=new JobStatusResponse();
         JobStatusEntity job = new JobStatusEntity();
         job.setStatus("IN-PROGRESS");
+        job.setService("EC2-Instance-List");
         job.setCreatedAt(LocalDateTime.now());
         job.setUpdatedAt(LocalDateTime.now());
         job=jobRepository.save(job);
+        
         try{
         do {
         DescribeInstancesRequest request = new DescribeInstancesRequest()
@@ -160,6 +164,7 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     } while (nextToken != null);
 
         job.setStatus("COMPLETED");
+        job.setService("EC2-Instance-List");
         job.setUpdatedAt(LocalDateTime.now());
         jobRepository.save(job);
 
@@ -168,9 +173,11 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 }
 catch(Exception e){
      job.setStatus("FAILED");
-        job.setUpdatedAt(LocalDateTime.now());
+       job.setService("EC2-Instance-List");
+    job.setUpdatedAt(LocalDateTime.now());
         jobRepository.save(job);
 }
+
     return instanceStateList;
     }
 
@@ -178,6 +185,13 @@ catch(Exception e){
     public List<String> listAllS3Buckets(ListBucketsPaginatedRequest paginatedRequest) {
         List<String> bucketNames=new ArrayList<>();
         String continuationToken=paginatedRequest.getContinuationToken();
+        JobStatusEntity job = new JobStatusEntity();
+        job.setStatus("IN-PROGRESS");
+        job.setService("S3-Bucket-List");
+        job.setCreatedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
+        job=jobRepository.save(job);
+       try{
         do{
             paginatedRequest.setContinuationToken(continuationToken);
             ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
@@ -186,7 +200,120 @@ catch(Exception e){
             }
             continuationToken=result.getContinuationToken();
         }while (continuationToken!=null);
+        job.setStatus("COMPLETED");
+        job.setService("S3-Bucket-List");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+    }
+    catch(Exception e){
+     job.setStatus("FAILED");
+     job.setService("S3-Bucket-List");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+}
         return bucketNames;
+    }
+
+
+    @Override
+    public JobStatusResponse listAllS3Buckets_new(ListBucketsPaginatedRequest paginatedRequest) {
+        List<String> bucketNames=new ArrayList<>();
+          JobStatusResponse statusResp=new JobStatusResponse();
+        String continuationToken=paginatedRequest.getContinuationToken();
+        JobStatusEntity job = new JobStatusEntity();
+        job.setStatus("IN-PROGRESS");
+        job.setService("S3-Bucket-List");
+        job.setCreatedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
+        job=jobRepository.save(job);
+       try{
+        do{
+            paginatedRequest.setContinuationToken(continuationToken);
+            ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
+            for(Bucket bucket: result.getBuckets()){
+                bucketNames.add(bucket.getName());
+            }
+            continuationToken=result.getContinuationToken();
+        }while (continuationToken!=null);
+        job.setStatus("COMPLETED");
+        job.setService("S3-Bucket-List");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+
+          statusResp.setJobId(job.getId());
+    statusResp.setServiceName(job.getService());
+    return statusResp;
+        
+    }
+    catch(Exception e){
+     job.setStatus("FAILED");
+     job.setService("S3-Bucket-List");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+        statusResp.setJobId(job.getId());
+    statusResp.setServiceName(job.getService());
+    return statusResp;
+}
+       
+    }
+
+     @Override
+    public JobStatusResponse discover_new() {
+        List<ImageStateResponse> instanceStateList = new ArrayList<>();
+       JobStatusResponse statusResp=new JobStatusResponse();
+        String nextToken=null;
+        JobStatusResponse jobStatusResponse=new JobStatusResponse();
+        JobStatusEntity job = new JobStatusEntity();
+        job.setStatus("IN-PROGRESS");
+        job.setService("EC2-Instance-List");
+        job.setCreatedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
+        job=jobRepository.save(job);
+        
+        try{
+        do {
+        DescribeInstancesRequest request = new DescribeInstancesRequest()
+            .withNextToken(nextToken)
+            .withFilters(new Filter()
+                .withName("instance-state-name")
+                .withValues("running", "stopped"));
+
+        DescribeInstancesResult response = ec2Client.describeInstances(request);
+
+        for (Reservation reservation : response.getReservations()) {
+            for (Instance instance : reservation.getInstances()) {
+                ImageStateResponse resp = new ImageStateResponse();
+                resp.setImageId(instance.getInstanceId());
+                resp.setState(instance.getState().getName());
+                instanceStateList.add(resp);
+            }
+        }
+
+        nextToken = response.getNextToken();
+    } while (nextToken != null);
+
+        job.setStatus("COMPLETED");
+        job.setService("EC2-Instance-List");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+
+    // Inform the user that all instances have been listed
+    System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
+     statusResp.setJobId(job.getId());
+    statusResp.setServiceName(job.getService());
+
+    return statusResp;
+}
+catch(Exception e){
+     job.setStatus("FAILED");
+       job.setService("EC2-Instance-List");
+    job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+          statusResp.setJobId(job.getId());
+    statusResp.setServiceName(job.getService());
+    return statusResp;
+}
+   
     }
     
 }
