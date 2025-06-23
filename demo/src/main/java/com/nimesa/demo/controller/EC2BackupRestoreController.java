@@ -3,9 +3,11 @@ package com.nimesa.demo.controller;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazonaws.services.medialive.model.SrtSettings;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
 import com.nimesa.demo.response.BackupResponse;
 import com.nimesa.demo.response.ImageStateResponse;
+import com.nimesa.demo.response.JobStatusResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
 import org.springframework.http.HttpStatus;
@@ -36,6 +38,17 @@ public class EC2BackupRestoreController{
        return new ResponseEntity<>(state,HttpStatus.OK);
     }
 
+    @GetMapping("/discover")
+    public ResponseEntity<List<JobStatusResponse>> discoverServices(@RequestParam List<String> services){
+         List<JobStatusResponse> result = new ArrayList<>();
+    boolean hasS3 = services.stream().anyMatch(s -> s.equalsIgnoreCase("S3"));
+    boolean hasEC2 = services.stream().anyMatch(s -> s.equalsIgnoreCase("EC2"));
+    
+    if (hasEC2) result.add(ec2BackupRestoreService.discover_new());
+    if (hasS3) result.add(ec2BackupRestoreService.listAllS3Buckets_new(paginatdRequest()));
+        return  new ResponseEntity<>(result,HttpStatus.OK);
+    }
+
     @GetMapping("/instances/discover")
     public ResponseEntity<List<ImageStateResponse>> discover(){
         List<ImageStateResponse> discoveredInstances= ec2BackupRestoreService.discover();
@@ -62,5 +75,7 @@ public class EC2BackupRestoreController{
         return request;
  
     }
+
+
 
 }
