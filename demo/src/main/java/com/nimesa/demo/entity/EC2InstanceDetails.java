@@ -16,17 +16,14 @@ import lombok.Setter;
 @Getter
 @Setter
 @Data
-@Table(name = "jobs")
-public class JobStatusEntity {
-
-    @Id
+@Table(name = "EC2_instance_name")
+public class EC2InstanceDetails {
+      @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
-    private String status;
-    private String service;
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
+    private UUID jobId;
+    private String instanceId; 
+    private String instanceType;
+    private String state;
     
 }

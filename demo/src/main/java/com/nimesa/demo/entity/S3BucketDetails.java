@@ -16,17 +16,12 @@ import lombok.Setter;
 @Getter
 @Setter
 @Data
-@Table(name = "jobs")
-public class JobStatusEntity {
-
-    @Id
+@Table(name = "S3_bucket_name")
+public class S3BucketDetails {
+     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
-    private String status;
-    private String service;
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
+    private UUID jobId;
+    private String bucketName; 
     
 }
