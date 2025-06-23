@@ -1,10 +1,12 @@
 package com.nimesa.demo.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
+
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.AmazonEC2Exception;
 import com.amazonaws.services.ec2.model.CreateImageRequest;
@@ -24,6 +26,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedResult;
+import com.nimesa.demo.entity.JobStatusEntity;
+import com.nimesa.demo.repository.JobRepository;
 import com.nimesa.demo.response.BackupResponse;
 
 import com.nimesa.demo.response.ImageStateResponse;
@@ -37,10 +41,13 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 
     private final AmazonEC2 ec2Client;
     private final AmazonS3 s3Client;
+    private final JobRepository jobRepository;
 
-    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client, AmazonS3 s3Client){
+    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client, AmazonS3 s3Client ,JobRepository jobRepository){
         this.ec2Client=ec2Client;
         this.s3Client=s3Client;
+        this.jobRepository=jobRepository;
+
         
     }
     
@@ -125,9 +132,13 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     public List<ImageStateResponse> discover() {
         List<ImageStateResponse> instanceStateList = new ArrayList<>();
         String nextToken=null;
-      
-
-    do {
+        JobStatusEntity job = new JobStatusEntity();
+        job.setStatus("IN-PROGRESS");
+        job.setCreatedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
+        job=jobRepository.save(job);
+        try{
+        do {
         DescribeInstancesRequest request = new DescribeInstancesRequest()
             .withNextToken(nextToken)
             .withFilters(new Filter()
@@ -148,9 +159,18 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         nextToken = response.getNextToken();
     } while (nextToken != null);
 
+        job.setStatus("COMPLETED");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+
     // Inform the user that all instances have been listed
     System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
-
+}
+catch(Exception e){
+     job.setStatus("FAILED");
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+}
     return instanceStateList;
     }
 
@@ -168,7 +188,5 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         }while (continuationToken!=null);
         return bucketNames;
     }
-
-    
     
 }
