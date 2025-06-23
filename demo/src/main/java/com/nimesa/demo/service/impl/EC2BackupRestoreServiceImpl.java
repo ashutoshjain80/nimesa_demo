@@ -373,7 +373,8 @@ public List<S3ObjectEntity> getS3Objects(String bucketName,String objectKeyPatte
      if (objectKeyPattern == null || objectKeyPattern.isBlank()) {
         return s3ObjectRepository.findByBucketName(bucketName);
     } else {
-        return s3ObjectRepository.findByBucketNameAndObjectKeyContaining(bucketName,objectKeyPattern);
+        String likePattern = "%" + objectKeyPattern.trim() + "%";
+        return s3ObjectRepository.findByBucketAndObjectKeyPatternIgnoreCase(bucketName,likePattern);
     }
 }
 }
