@@ -268,6 +268,7 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 @Async
 private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
     String nextToken=null;
+     Set<String> currentEC2Instances = new HashSet<>();
     List<EC2InstanceDetails> instanceDetailsList=new ArrayList<>();
     try{
         Set<String> existingInstances = new HashSet<>(ec2Repository.findAllInstanceIds());
@@ -282,6 +283,7 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
 
         for (Reservation reservation : response.getReservations()) {
             for (Instance instance : reservation.getInstances()) {
+                 currentEC2Instances.add(instance.getInstanceId());
                 if(!existingInstances.contains(instance.getInstanceId())){
                      EC2InstanceDetails instanceDetails=new EC2InstanceDetails();
                     instanceDetails.setInstanceId(instance.getInstanceId());
@@ -297,6 +299,13 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
        
          
         ec2Repository.saveAll(instanceDetailsList);
+         Set<String> keysToDelete = new HashSet<>(existingInstances);
+        keysToDelete.removeAll(currentEC2Instances);
+
+        if (!keysToDelete.isEmpty()) {
+            ec2Repository.deleteByInstanceIdIn(keysToDelete);
+        }
+
         jobRepository.findById(jobId).ifPresent(job -> {
                 job.setStatus("COMPLETED");
                 jobRepository.save(job);
@@ -314,7 +323,8 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
 }
 private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPaginatedRequest paginatedRequest){
    
-    List<S3BucketDetails> s3DetailsList=new ArrayList<>();       
+    List<S3BucketDetails> s3DetailsList=new ArrayList<>();    
+     Set<String> currentS3uckets = new HashSet<>();   
         String continuationToken=paginatedRequest.getContinuationToken();
          Set<String> existingS3Buckets = new HashSet<>(s3BucketRepository.findAllBuckets());
        try{
@@ -322,7 +332,7 @@ private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPagin
             paginatedRequest.setContinuationToken(continuationToken);
             ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
             for(Bucket bucket: result.getBuckets()){
-                
+                 currentS3uckets.add(bucket.getName());
                 if(!existingS3Buckets.contains(bucket.getName())){
                  S3BucketDetails bucketDetails=new S3BucketDetails();
                     bucketDetails.setBucketName(bucket.getName());
@@ -333,6 +343,13 @@ private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPagin
             continuationToken=result.getContinuationToken();
         }while (continuationToken!=null);
         s3BucketRepository.saveAll(s3DetailsList);
+        Set<String> keysToDelete = new HashSet<>(existingS3Buckets);
+        keysToDelete.removeAll(currentS3uckets);
+
+        if (!keysToDelete.isEmpty()) {
+            s3BucketRepository.deleteByBucketNameIn(keysToDelete);
+        }
+
         jobRepository.findById(jobId).ifPresent(job -> {
                 job.setStatus("COMPLETED");
                 jobRepository.save(job);
@@ -351,12 +368,12 @@ public long getS3ObjectCount(String bucketName){
     return s3ObjectRepository.countByBucketName(bucketName);
 }
 
-public List<S3ObjectEntity> getS3Objects(String bucketName,String searchPattern)
+public List<S3ObjectEntity> getS3Objects(String bucketName,String objectKeyPattern)
 {
-     if (searchPattern == null || searchPattern.isBlank()) {
+     if (objectKeyPattern == null || objectKeyPattern.isBlank()) {
         return s3ObjectRepository.findByBucketName(bucketName);
     } else {
-        return s3ObjectRepository.findByBucketNameContaining(searchPattern);
+        return s3ObjectRepository.findByBucketNameAndObjectKeyContaining(bucketName,objectKeyPattern);
     }
 }
 }
