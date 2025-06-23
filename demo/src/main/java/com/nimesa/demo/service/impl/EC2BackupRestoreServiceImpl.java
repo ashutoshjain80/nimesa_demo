@@ -124,19 +124,34 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     @Override
     public List<ImageStateResponse> discover() {
         List<ImageStateResponse> instanceStateList = new ArrayList<>();
-        DescribeInstancesRequest request= new DescribeInstancesRequest().withFilters();
-        Filter stateFilter = new Filter().withName("instance-state-name").withValues("running","stopped");
-        request.withFilters(stateFilter);
+        String nextToken=null;
+      
+
+    do {
+        DescribeInstancesRequest request = new DescribeInstancesRequest()
+            .withNextToken(nextToken)
+            .withFilters(new Filter()
+                .withName("instance-state-name")
+                .withValues("running", "stopped"));
+
         DescribeInstancesResult response = ec2Client.describeInstances(request);
-        for(Reservation reservation : response.getReservations()){
-            for(Instance instance : reservation.getInstances()){
-                ImageStateResponse resp=new ImageStateResponse();
+
+        for (Reservation reservation : response.getReservations()) {
+            for (Instance instance : reservation.getInstances()) {
+                ImageStateResponse resp = new ImageStateResponse();
                 resp.setImageId(instance.getInstanceId());
                 resp.setState(instance.getState().getName());
                 instanceStateList.add(resp);
             }
         }
-        return instanceStateList;
+
+        nextToken = response.getNextToken();
+    } while (nextToken != null);
+
+    // Inform the user that all instances have been listed
+    System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
+
+    return instanceStateList;
     }
 
     @Override
