@@ -2,8 +2,10 @@ package com.nimesa.demo.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -182,14 +184,14 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         .collect(Collectors.toList());
     }
 
-     public Page<EC2InstanceDetails> getEC2InstanceDetails(UUID jobId,int page ,int size) {
+     public Page<EC2InstanceDetails> getEC2InstanceDetails(int page ,int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ec2Repository.findAllByJobId(jobId, pageable);
+        return ec2Repository.findAll( pageable);
      }
 
-     public Page<S3BucketDetails> getS3BucketDetails(UUID jobId,int page ,int size){
+     public Page<S3BucketDetails> getS3BucketDetails(int page ,int size){
         Pageable pageable = PageRequest.of(page, size);
-        return s3BucketRepository.findAllByJobId(jobId, pageable);
+        return s3BucketRepository.findAll( pageable);
      }
 
      public JobStatusResponse createJobAndStoreS3Objects(String bucketName){
@@ -220,7 +222,7 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         ListObjectsV2Result result;
 
         List<S3ObjectEntity> allObjects = new ArrayList<>();
-        
+        Set<String> existingOjects = new HashSet<>(s3ObjectRepository.findAllObjects(bucketName));
         do {
             ListObjectsV2Request request = new ListObjectsV2Request()
                     .withBucketName(bucketName)
@@ -230,7 +232,9 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
             result = s3Client.listObjectsV2(request);
 
             for (S3ObjectSummary summary : result.getObjectSummaries()) {
-                allObjects.add(new S3ObjectEntity(jobId,bucketName, summary.getKey()));
+                if(!existingOjects.contains(summary.getKey())){
+                    allObjects.add(new S3ObjectEntity(bucketName, summary.getKey()));
+                }
             }
 
             continuationToken = result.getNextContinuationToken();
@@ -258,8 +262,8 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
     String nextToken=null;
     List<EC2InstanceDetails> instanceDetailsList=new ArrayList<>();
-    List<ImageStateResponse> instanceStateList = new ArrayList<>();
     try{
+        Set<String> existingInstances = new HashSet<>(ec2Repository.findAllInstanceIds());
         do {
         DescribeInstancesRequest request = new DescribeInstancesRequest()
             .withNextToken(nextToken)
@@ -271,17 +275,13 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
 
         for (Reservation reservation : response.getReservations()) {
             for (Instance instance : reservation.getInstances()) {
-                ImageStateResponse resp = new ImageStateResponse();
-                resp.setImageId(instance.getInstanceId());
-                resp.setState(instance.getState().getName());
-                 EC2InstanceDetails instanceDetails=new EC2InstanceDetails();
-                 instanceDetails.setJobId(jobId);
-                 instanceDetails.setInstanceId(instance.getInstanceId());
-                 instanceDetails.setInstanceType(instance.getInstanceType());
-                 instanceDetails.setState(instance.getState().getName());
-                instanceDetailsList.add(instanceDetails);
+                if(!existingInstances.contains(instance.getInstanceId())){
+                     EC2InstanceDetails instanceDetails=new EC2InstanceDetails();
+                    instanceDetails.setInstanceId(instance.getInstanceId());
+                    instanceDetails.setInstanceType(instance.getInstanceType());
+                    instanceDetailsList.add(instanceDetails);
+            }
 
-                instanceStateList.add(resp);
             }
         }
 
@@ -294,10 +294,6 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
                 job.setStatus("COMPLETED");
                 jobRepository.save(job);
             });
-
-
-    // Inform the user that all instances have been listed
-    System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
         }
     catch(Exception e){
         jobRepository.findById(jobId).ifPresent(job -> {
@@ -312,15 +308,17 @@ private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
 private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPaginatedRequest paginatedRequest){
     List<S3BucketDetails> s3DetailsList=new ArrayList<>();       
         String continuationToken=paginatedRequest.getContinuationToken();
+         Set<String> existingS3Buckets = new HashSet<>(s3BucketRepository.findAllBuckets());
        try{
         do{
             paginatedRequest.setContinuationToken(continuationToken);
             ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
             for(Bucket bucket: result.getBuckets()){
+                if(!existingS3Buckets.contains(bucket.getName())){
                  S3BucketDetails bucketDetails=new S3BucketDetails();
                 bucketDetails.setBucketName(bucket.getName());
-                bucketDetails.setJobId(jobId);
                 s3DetailsList.add(bucketDetails);
+                }
                // bucketNames.add(bucket.getName());
             }
             continuationToken=result.getContinuationToken();
@@ -339,5 +337,17 @@ private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPagin
     }
 
 return CompletableFuture.completedFuture(null);
+}
+public long getS3ObjectCount(String bucketName){
+    return s3ObjectRepository.countByBucketName(bucketName);
+}
+
+public List<S3ObjectEntity> getS3Objects(String bucketName,String searchPattern)
+{
+     if (searchPattern == null || searchPattern.isBlank()) {
+        return s3ObjectRepository.findByBucketName(bucketName);
+    } else {
+        return s3ObjectRepository.findByBucketNameContaining(searchPattern);
+    }
 }
 }
