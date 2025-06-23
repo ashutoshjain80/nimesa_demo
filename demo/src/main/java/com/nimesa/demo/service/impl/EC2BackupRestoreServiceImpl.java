@@ -5,11 +5,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.deadline.model.JobEntity;
+
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.AmazonEC2Exception;
 import com.amazonaws.services.ec2.model.CreateImageRequest;
@@ -29,14 +30,27 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedResult;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.nimesa.demo.entity.EC2InstanceDetails;
 import com.nimesa.demo.entity.JobStatusEntity;
+import com.nimesa.demo.entity.S3BucketDetails;
+import com.nimesa.demo.entity.S3ObjectEntity;
+import com.nimesa.demo.repository.EC2Repository;
 import com.nimesa.demo.repository.JobRepository;
+import com.nimesa.demo.repository.S3BucketRepository;
+import com.nimesa.demo.repository.S3ObjectRepository;
 import com.nimesa.demo.response.BackupResponse;
 
 import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.response.JobStatusResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -46,12 +60,18 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     private final AmazonEC2 ec2Client;
     private final AmazonS3 s3Client;
     private final JobRepository jobRepository;
+    private final S3BucketRepository s3BucketRepository;
+    private final EC2Repository ec2Repository;
+    private final S3ObjectRepository s3ObjectRepository;
 
-    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client, AmazonS3 s3Client ,JobRepository jobRepository){
+    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client, AmazonS3 s3Client ,JobRepository jobRepository,
+    S3BucketRepository s3BucketRepository, EC2Repository ec2Repository,S3ObjectRepository s3ObjectRepository){
         this.ec2Client=ec2Client;
         this.s3Client=s3Client;
         this.jobRepository=jobRepository;
-
+        this.s3BucketRepository=s3BucketRepository;
+        this.ec2Repository=ec2Repository;
+        this.s3ObjectRepository=s3ObjectRepository;
         
     }
     
@@ -133,189 +153,23 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
     }
 
     @Override
-    public List<ImageStateResponse> discover() {
-        List<ImageStateResponse> instanceStateList = new ArrayList<>();
-        String nextToken=null;
-        JobStatusResponse jobStatusResponse=new JobStatusResponse();
-        JobStatusEntity job = new JobStatusEntity();
-        job.setStatus("IN-PROGRESS");
-        job.setService("EC2-Instance-List");
-        job.setCreatedAt(LocalDateTime.now());
-        job.setUpdatedAt(LocalDateTime.now());
-        job=jobRepository.save(job);
-        
-        try{
-        do {
-        DescribeInstancesRequest request = new DescribeInstancesRequest()
-            .withNextToken(nextToken)
-            .withFilters(new Filter()
-                .withName("instance-state-name")
-                .withValues("running", "stopped"));
-
-        DescribeInstancesResult response = ec2Client.describeInstances(request);
-
-        for (Reservation reservation : response.getReservations()) {
-            for (Instance instance : reservation.getInstances()) {
-                ImageStateResponse resp = new ImageStateResponse();
-                resp.setImageId(instance.getInstanceId());
-                resp.setState(instance.getState().getName());
-                instanceStateList.add(resp);
-            }
-        }
-
-        nextToken = response.getNextToken();
-    } while (nextToken != null);
-
-        job.setStatus("COMPLETED");
-        job.setService("EC2-Instance-List");
-        job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-
-    // Inform the user that all instances have been listed
-    System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
-}
-catch(Exception e){
-     job.setStatus("FAILED");
-       job.setService("EC2-Instance-List");
-    job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-}
-
-    return instanceStateList;
-    }
-
-    @Override
-    public List<String> listAllS3Buckets(ListBucketsPaginatedRequest paginatedRequest) {
-        List<String> bucketNames=new ArrayList<>();
-        String continuationToken=paginatedRequest.getContinuationToken();
-        JobStatusEntity job = new JobStatusEntity();
-        job.setStatus("IN-PROGRESS");
-        job.setService("S3-Bucket-List");
-        job.setCreatedAt(LocalDateTime.now());
-        job.setUpdatedAt(LocalDateTime.now());
-        job=jobRepository.save(job);
-       try{
-        do{
-            paginatedRequest.setContinuationToken(continuationToken);
-            ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
-            for(Bucket bucket: result.getBuckets()){
-                bucketNames.add(bucket.getName());
-            }
-            continuationToken=result.getContinuationToken();
-        }while (continuationToken!=null);
-        job.setStatus("COMPLETED");
-        job.setService("S3-Bucket-List");
-        job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-    }
-    catch(Exception e){
-     job.setStatus("FAILED");
-     job.setService("S3-Bucket-List");
-        job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-}
-        return bucketNames;
-    }
-
-
-    @Override
     public JobStatusResponse listAllS3Buckets_new(ListBucketsPaginatedRequest paginatedRequest) {
-        List<String> bucketNames=new ArrayList<>();
-          JobStatusResponse statusResp=new JobStatusResponse();
-        String continuationToken=paginatedRequest.getContinuationToken();
-        JobStatusEntity job = new JobStatusEntity();
-        job.setStatus("IN-PROGRESS");
-        job.setService("S3-Bucket-List");
-        job.setCreatedAt(LocalDateTime.now());
-        job.setUpdatedAt(LocalDateTime.now());
-        job=jobRepository.save(job);
-       try{
-        do{
-            paginatedRequest.setContinuationToken(continuationToken);
-            ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
-            for(Bucket bucket: result.getBuckets()){
-                bucketNames.add(bucket.getName());
-            }
-            continuationToken=result.getContinuationToken();
-        }while (continuationToken!=null);
-        job.setStatus("COMPLETED");
-        job.setService("S3-Bucket-List");
-        job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-
-          statusResp.setJobId(job.getId());
-    statusResp.setServiceName(job.getService());
-    return statusResp;
+       // List<String> bucketNames=new ArrayList<>();
         
-    }
-    catch(Exception e){
-     job.setStatus("FAILED");
-     job.setService("S3-Bucket-List");
-        job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-        statusResp.setJobId(job.getId());
-    statusResp.setServiceName(job.getService());
-    return statusResp;
+        JobStatusResponse jobStatusResponse=storeJobDetails("S3","IN-PROGRESS");
+        storeS3BucketDetails(jobStatusResponse.getJobId(),paginatedRequest);
+        return jobStatusResponse;
+
+        
 }
-       
-    }
 
      @Override
-    public JobStatusResponse discover_new() {
-        List<ImageStateResponse> instanceStateList = new ArrayList<>();
-       JobStatusResponse statusResp=new JobStatusResponse();
-        String nextToken=null;
-        JobStatusResponse jobStatusResponse=new JobStatusResponse();
-        JobStatusEntity job = new JobStatusEntity();
-        job.setStatus("IN-PROGRESS");
-        job.setService("EC2-Instance-List");
-        job.setCreatedAt(LocalDateTime.now());
-        job.setUpdatedAt(LocalDateTime.now());
-        job=jobRepository.save(job);
+    public JobStatusResponse discover_new(String serviceName) {
         
-        try{
-        do {
-        DescribeInstancesRequest request = new DescribeInstancesRequest()
-            .withNextToken(nextToken)
-            .withFilters(new Filter()
-                .withName("instance-state-name")
-                .withValues("running", "stopped"));
+        JobStatusResponse jobStatusResponse=storeJobDetails("EC2","IN-PROGRESS");
+        storeEC2InstanceDetails(jobStatusResponse.getJobId());
+        return jobStatusResponse;
 
-        DescribeInstancesResult response = ec2Client.describeInstances(request);
-
-        for (Reservation reservation : response.getReservations()) {
-            for (Instance instance : reservation.getInstances()) {
-                ImageStateResponse resp = new ImageStateResponse();
-                resp.setImageId(instance.getInstanceId());
-                resp.setState(instance.getState().getName());
-                instanceStateList.add(resp);
-            }
-        }
-
-        nextToken = response.getNextToken();
-    } while (nextToken != null);
-
-        job.setStatus("COMPLETED");
-        job.setService("EC2-Instance-List");
-        job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-
-    // Inform the user that all instances have been listed
-    System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
-     statusResp.setJobId(job.getId());
-    statusResp.setServiceName(job.getService());
-
-    return statusResp;
-}
-catch(Exception e){
-     job.setStatus("FAILED");
-       job.setService("EC2-Instance-List");
-    job.setUpdatedAt(LocalDateTime.now());
-        jobRepository.save(job);
-          statusResp.setJobId(job.getId());
-    statusResp.setServiceName(job.getService());
-    return statusResp;
-}
    
     }
 
@@ -327,5 +181,163 @@ catch(Exception e){
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
     }
+
+     public Page<EC2InstanceDetails> getEC2InstanceDetails(UUID jobId,int page ,int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ec2Repository.findAllByJobId(jobId, pageable);
+     }
+
+     public Page<S3BucketDetails> getS3BucketDetails(UUID jobId,int page ,int size){
+        Pageable pageable = PageRequest.of(page, size);
+        return s3BucketRepository.findAllByJobId(jobId, pageable);
+     }
+
+     public JobStatusResponse createJobAndStoreS3Objects(String bucketName){
+       JobStatusResponse response=storeJobDetails("S3-Object","IN-PROGRESS");
+        storeS3ObjectsAsync(response.getJobId(), bucketName);  // fire and forget
+        return response;
+    }
+
     
+    private JobStatusResponse storeJobDetails(String serviceName,String status){
+        JobStatusEntity job=new JobStatusEntity();
+        JobStatusResponse response=new JobStatusResponse();
+        job.setService(serviceName);
+        job.setStatus("IN-PROGRESS");
+         job.setCreatedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
+        job= jobRepository.save(job);
+        response.setJobId(job.getId());
+        response.setStatus(job.getStatus());
+        response.setServiceName(job.getService());
+        return response;
+    }
+    
+   @Async
+    public CompletableFuture<Void> storeS3ObjectsAsync(UUID jobId, String bucketName) {
+       try{
+        String continuationToken = null;
+        ListObjectsV2Result result;
+
+        List<S3ObjectEntity> allObjects = new ArrayList<>();
+        
+        do {
+            ListObjectsV2Request request = new ListObjectsV2Request()
+                    .withBucketName(bucketName)
+                    .withContinuationToken(continuationToken)
+                    .withMaxKeys(10);
+
+            result = s3Client.listObjectsV2(request);
+
+            for (S3ObjectSummary summary : result.getObjectSummaries()) {
+                allObjects.add(new S3ObjectEntity(jobId,bucketName, summary.getKey()));
+            }
+
+            continuationToken = result.getNextContinuationToken();
+        } while (result.isTruncated());
+
+        s3ObjectRepository.saveAll(allObjects);
+
+        jobRepository.findById(jobId).ifPresent(job -> {
+                job.setStatus("COMPLETED");
+                jobRepository.save(job);
+            });
+    }
+    catch (Exception e) {
+            // Mark job as FAILED
+            jobRepository.findById(jobId).ifPresent(job -> {
+                job.setStatus("FAILED");
+                jobRepository.save(job);
+            });
+       
+    }
+     return CompletableFuture.completedFuture(null);
+}
+
+@Async
+private CompletableFuture<Void> storeEC2InstanceDetails(UUID jobId){
+    String nextToken=null;
+    List<EC2InstanceDetails> instanceDetailsList=new ArrayList<>();
+    List<ImageStateResponse> instanceStateList = new ArrayList<>();
+    try{
+        do {
+        DescribeInstancesRequest request = new DescribeInstancesRequest()
+            .withNextToken(nextToken)
+            .withFilters(new Filter()
+                .withName("instance-state-name")
+                .withValues("running", "stopped"));
+
+        DescribeInstancesResult response = ec2Client.describeInstances(request);
+
+        for (Reservation reservation : response.getReservations()) {
+            for (Instance instance : reservation.getInstances()) {
+                ImageStateResponse resp = new ImageStateResponse();
+                resp.setImageId(instance.getInstanceId());
+                resp.setState(instance.getState().getName());
+                 EC2InstanceDetails instanceDetails=new EC2InstanceDetails();
+                 instanceDetails.setJobId(jobId);
+                 instanceDetails.setInstanceId(instance.getInstanceId());
+                 instanceDetails.setInstanceType(instance.getInstanceType());
+                 instanceDetails.setState(instance.getState().getName());
+                instanceDetailsList.add(instanceDetails);
+
+                instanceStateList.add(resp);
+            }
+        }
+
+        nextToken = response.getNextToken();
+    } while (nextToken != null);
+       
+         
+        ec2Repository.saveAll(instanceDetailsList);
+        jobRepository.findById(jobId).ifPresent(job -> {
+                job.setStatus("COMPLETED");
+                jobRepository.save(job);
+            });
+
+
+    // Inform the user that all instances have been listed
+    System.out.println("All instances have been listed. Total count: " + instanceStateList.size());
+        }
+    catch(Exception e){
+        jobRepository.findById(jobId).ifPresent(job -> {
+                job.setStatus("FAILED");
+                jobRepository.save(job);
+        });
+    }
+
+    return CompletableFuture.completedFuture(null);
+
+}
+private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPaginatedRequest paginatedRequest){
+    List<S3BucketDetails> s3DetailsList=new ArrayList<>();       
+        String continuationToken=paginatedRequest.getContinuationToken();
+       try{
+        do{
+            paginatedRequest.setContinuationToken(continuationToken);
+            ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
+            for(Bucket bucket: result.getBuckets()){
+                 S3BucketDetails bucketDetails=new S3BucketDetails();
+                bucketDetails.setBucketName(bucket.getName());
+                bucketDetails.setJobId(jobId);
+                s3DetailsList.add(bucketDetails);
+               // bucketNames.add(bucket.getName());
+            }
+            continuationToken=result.getContinuationToken();
+        }while (continuationToken!=null);
+        s3BucketRepository.saveAll(s3DetailsList);
+        jobRepository.findById(jobId).ifPresent(job -> {
+                job.setStatus("COMPLETED");
+                jobRepository.save(job);
+            });
+        }
+        catch(Exception e){
+        jobRepository.findById(jobId).ifPresent(job -> {
+                job.setStatus("FAILED");
+                jobRepository.save(job);
+        });
+    }
+
+return CompletableFuture.completedFuture(null);
+}
 }
