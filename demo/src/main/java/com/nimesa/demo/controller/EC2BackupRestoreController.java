@@ -49,6 +49,12 @@ public class EC2BackupRestoreController{
         return  new ResponseEntity<>(result,HttpStatus.OK);
     }
 
+    @GetMapping("/job/status")
+    public ResponseEntity<List<JobStatusResponse>> jobStaus(@RequestParam List<String> jobIds){
+      List<JobStatusResponse> jobStatusResp=ec2BackupRestoreService.getJobStatus(jobIds);
+      return new ResponseEntity<>(jobStatusResp,HttpStatus.OK);
+    }
+
     @GetMapping("/instances/discover")
     public ResponseEntity<List<ImageStateResponse>> discover(){
         List<ImageStateResponse> discoveredInstances= ec2BackupRestoreService.discover();
