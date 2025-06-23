@@ -20,6 +20,10 @@ import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
+import com.amazonaws.services.s3.model.ListBucketsPaginatedResult;
 import com.nimesa.demo.response.BackupResponse;
 
 import com.nimesa.demo.response.ImageStateResponse;
@@ -32,8 +36,11 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
 {
 
     private final AmazonEC2 ec2Client;
-    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client){
+    private final AmazonS3 s3Client;
+
+    public EC2BackupRestoreServiceImpl(AmazonEC2 ec2Client, AmazonS3 s3Client){
         this.ec2Client=ec2Client;
+        this.s3Client=s3Client;
         
     }
     
@@ -131,5 +138,22 @@ public class EC2BackupRestoreServiceImpl implements EC2BackupRestoreService
         }
         return instanceStateList;
     }
+
+    @Override
+    public List<String> listAllS3Buckets(ListBucketsPaginatedRequest paginatedRequest) {
+        List<String> bucketNames=new ArrayList<>();
+        String continuationToken=paginatedRequest.getContinuationToken();
+        do{
+            paginatedRequest.setContinuationToken(continuationToken);
+            ListBucketsPaginatedResult result= s3Client.listBuckets(paginatedRequest);
+            for(Bucket bucket: result.getBuckets()){
+                bucketNames.add(bucket.getName());
+            }
+            continuationToken=result.getContinuationToken();
+        }while (continuationToken!=null);
+        return bucketNames;
+    }
+
+    
     
 }
