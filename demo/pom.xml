@@ -61,6 +61,12 @@
 			<artifactId>aws-java-sdk-ec2</artifactId>
 			<version>1.12.118</version>
 		</dependency>
+		<dependency>
+    <groupId>com.amazonaws</groupId>
+    <artifactId>aws-java-sdk</artifactId>
+    <version>1.12.787</version>
+</dependency>
+
 	</dependencies>
 
 	<build>
