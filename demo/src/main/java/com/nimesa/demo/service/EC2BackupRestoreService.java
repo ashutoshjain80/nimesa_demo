@@ -26,7 +26,7 @@ public interface EC2BackupRestoreService{
     Page<S3BucketDetails> getS3BucketDetails(int page ,int size);
     JobStatusResponse createJobAndStoreS3Objects(String bucketName);
     long getS3ObjectCount(String bucketName);
-    List<S3ObjectEntity> getS3Objects(String bucketName,String searchPattern);
+    Page<S3ObjectEntity> getS3Objects(String bucketName,String searchPattern,int page,int size);
 
 
 
