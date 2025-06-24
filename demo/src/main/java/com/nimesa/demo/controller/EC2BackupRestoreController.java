@@ -8,9 +8,12 @@ import com.amazonaws.Response;
 import com.amazonaws.services.medialive.model.SrtSettings;
 import com.amazonaws.services.s3.event.S3EventNotification.S3ObjectEntity;
 import com.amazonaws.services.s3.model.ListBucketsPaginatedRequest;
+import com.nimesa.demo.entity.EC2InstanceDetails;
+import com.nimesa.demo.entity.S3BucketDetails;
 import com.nimesa.demo.response.BackupResponse;
 import com.nimesa.demo.response.ImageStateResponse;
 import com.nimesa.demo.response.JobStatusResponse;
+import com.nimesa.demo.response.PagedResponse;
 import com.nimesa.demo.service.EC2BackupRestoreService;
 
 import org.springframework.data.domain.Page;
@@ -75,13 +78,21 @@ public class EC2BackupRestoreController{
     }
 
     @GetMapping("/discovery/result")
-       public ResponseEntity<Page<?>> discoverServicesResult(@RequestParam String service,@RequestParam(defaultValue = "0") int page,
+       public ResponseEntity<PagedResponse<?>> discoverServicesResult(@RequestParam String service,@RequestParam(defaultValue = "0") int page,
         @RequestParam (defaultValue = "10") int size) throws Exception{
         if(service.contains("EC2")){
-           return new ResponseEntity<>(ec2BackupRestoreService.getEC2InstanceDetails(page,size),HttpStatus.OK);
+           Page<EC2InstanceDetails> ec2Response=ec2BackupRestoreService.getEC2InstanceDetails(page,size);
+            PagedResponse<EC2InstanceDetails> resp=new PagedResponse<>();
+            resp.setContent(ec2Response.getContent());
+            resp.setTotalElements(ec2Response.getTotalElements());
+            return new ResponseEntity<>(resp,HttpStatus.OK);
         }
         if(service.contains("S3")){
-             return new ResponseEntity<>(ec2BackupRestoreService.getS3BucketDetails(page,size),HttpStatus.OK);
+             Page<S3BucketDetails> s3Bucketetails=ec2BackupRestoreService.getS3BucketDetails(page,size);
+             PagedResponse<S3BucketDetails> resp=new PagedResponse<>();
+            resp.setContent(s3Bucketetails.getContent());
+            resp.setTotalElements(s3Bucketetails.getTotalElements());
+            return new ResponseEntity<>(resp,HttpStatus.OK);
         }
       throw new Exception("Service Not Supported");
       
@@ -98,8 +109,14 @@ public class EC2BackupRestoreController{
     }
 
     @GetMapping("/bucket/objects")
-    public ResponseEntity<List<com.nimesa.demo.entity.S3ObjectEntity>> getS3BucketObjetCount(@RequestParam  String bucketName,@RequestParam(required=false) String searchPattern){
-        return new ResponseEntity<>(ec2BackupRestoreService.getS3Objects(bucketName,searchPattern),HttpStatus.OK);
+    public ResponseEntity<PagedResponse<?>> getS3BucketObjetCount(@RequestParam  String bucketName,@RequestParam(required=false) String searchPattern,
+    @RequestParam(defaultValue = "0") int page,
+        @RequestParam (defaultValue = "10") int size){
+        Page<com.nimesa.demo.entity.S3ObjectEntity> s3Ojects=ec2BackupRestoreService.getS3Objects(bucketName,searchPattern,page,size);
+         PagedResponse<com.nimesa.demo.entity.S3ObjectEntity> resp=new PagedResponse<>();
+            resp.setContent(s3Ojects.getContent());
+            resp.setTotalElements(s3Ojects.getTotalElements());
+            return new ResponseEntity<>(resp,HttpStatus.OK);
     }
 
     private ListBucketsPaginatedRequest paginatdRequest(){
