@@ -368,13 +368,13 @@ public long getS3ObjectCount(String bucketName){
     return s3ObjectRepository.countByBucketName(bucketName);
 }
 
-public List<S3ObjectEntity> getS3Objects(String bucketName,String objectKeyPattern)
+public Page<S3ObjectEntity> getS3Objects(String bucketName,String objectKeyPattern,int page,int size)
 {
-     if (objectKeyPattern == null || objectKeyPattern.isBlank()) {
-        return s3ObjectRepository.findByBucketName(bucketName);
+    Pageable pageable = PageRequest.of(page, size);
+    if (objectKeyPattern == null || objectKeyPattern.isBlank()) {
+        return s3ObjectRepository.findByBucketName(bucketName,pageable);
     } else {
-        String likePattern = "%" + objectKeyPattern.trim() + "%";
-        return s3ObjectRepository.findByBucketAndObjectKeyPatternIgnoreCase(bucketName,likePattern);
+        return s3ObjectRepository.findByBucketAndObjectKeyPatternIgnoreCase(bucketName,objectKeyPattern,pageable);
     }
 }
 }
