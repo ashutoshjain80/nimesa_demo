@@ -364,6 +364,8 @@ private CompletableFuture<Void> storeS3BucketDetails(UUID jobId,ListBucketsPagin
 
 return CompletableFuture.completedFuture(null);
 }
+
+
 public long getS3ObjectCount(String bucketName){
     return s3ObjectRepository.countByBucketName(bucketName);
 }
@@ -374,7 +376,8 @@ public Page<S3ObjectEntity> getS3Objects(String bucketName,String objectKeyPatte
     if (objectKeyPattern == null || objectKeyPattern.isBlank()) {
         return s3ObjectRepository.findByBucketName(bucketName,pageable);
     } else {
-        return s3ObjectRepository.findByBucketAndObjectKeyPatternIgnoreCase(bucketName,objectKeyPattern,pageable);
+        String likePattern = "%" + objectKeyPattern.trim() + "%";
+        return s3ObjectRepository.findByBucketAndObjectKeyPatternIgnoreCase(bucketName,likePattern,pageable);
     }
 }
 }
